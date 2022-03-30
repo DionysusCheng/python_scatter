@@ -4,7 +4,7 @@ import requests
 import pandas as pd
 from selenium import webdriver
 from selenium.webdriver.support.ui import Select
-
+cwd = "/home/dionysus/python_cron/chromedriver"
 global os_is
 
 def GetStockNO(l):
@@ -35,10 +35,14 @@ def ScatterCsv():
     data = pd.read_csv(csv_add)
 
 def ScatterWebGetDate():
+    global os_is
     from selenium.webdriver.chrome.options import Options
     options = Options()
     options.headless = True
-    driver = webdriver.Chrome(chrome_options=options)
+    if os_is == "windows":
+        driver = webdriver.Chrome(chrome_options=options)
+    else:
+        driver = webdriver.Chrome(cwd,chrome_options=options)
     driver.get("https://www.tdcc.com.tw/smWeb/QryStock.jsp")
 
     times =10
@@ -49,7 +53,7 @@ def ScatterWebGetDate():
             break
         except:
             continue
-        time.sleep(1)
+        time.sleep(0.5)
         times-=1
     tables = driver.find_elements_by_class_name("mt")
 
@@ -64,18 +68,32 @@ def ScatterWebGetDate():
     driver.close()
     return out_date
 
+def GetStockValue(no, date):
+    import pandas_datareader as data
+    stock_name = str(no) + ".TW"
+    date = str(date)[:4] + "-" + str(date)[4:6] + "-" + str(date)[6:9]
+    value = data.DataReader(stock_name, 'yahoo', date, date)
+
+    str_split = str(value["Close"][0]).split('.')
+
+    return str_split[0] +"."+ str_split[1][:3]
+
 def ScatterTable(no,date):
     from selenium import webdriver
     from selenium.webdriver.chrome.options import Options
+    global os_is
     options = Options()
     options.headless = True
-    driver = webdriver.Chrome(chrome_options=options)
+    if os_is == "windows":
+        driver = webdriver.Chrome(chrome_options=options)
+    else:
+        driver = webdriver.Chrome(cwd,chrome_options=options)
     driver.get("https://www.tdcc.com.tw/smWeb/QryStock.jsp")
-    time.sleep(1)
+    #time.sleep(1)
 
     out_str = ""
-    try:
-        for d_i in date:
+    for d_i in date:
+        try:
             # Get stock number element
             element = driver.find_elements_by_name("StockNo")
             for a in element:
@@ -87,25 +105,29 @@ def ScatterTable(no,date):
             sel_date = Select(select)
             sel_date.select_by_visible_text(d_i)
             sel_date.select_by_value(d_i)
-            #time.sleep(0.1)
+
             elements = driver.find_elements_by_name("sub")
             for b in elements:
                 if (b.get_attribute("type") == "button" and b.get_property("value") == "查詢"):
                     b.click()
-
             tables = driver.find_elements_by_class_name("mt")
 
             if len(tables)>1:
                 #print(tables[1].text)
-
-                    table = tables[1].text.split("\n")
-                    out_str += d_i
-                    for i in range(1,len(table)-1):
-                        val = table[i].split(" ")
-                        out_str += "," + val[2].replace(",","") + " " + val[4]
-                    out_str +="\n"
-    except:
-        pass
+                table = tables[1].text.split("\n")
+                # date, stock value
+                try:
+                    s_val =  GetStockValue(no,d_i)
+                except:
+                    s_val = ""
+                out_str += d_i + "," + s_val
+                for i in range(1,len(table)-1):
+                    val = table[i].split(" ")
+                    # cat person, percentage
+                    out_str += "," + val[2].replace(",","") + " " + val[4]
+                out_str +="\n"
+        except:
+            continue
     driver.close()
     target_str = "ScaterData/" + str(no) + ".csv"
     if os_is == "windows":
