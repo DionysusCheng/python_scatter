@@ -1,5 +1,6 @@
 import time
-
+import os
+import numpy
 import requests
 import pandas as pd
 from selenium import webdriver
@@ -191,5 +192,197 @@ def ScatterDataBase():
             # if os.path.exists(str(a)+".csv"):
             #     shutil.move(str(a)+".csv", "ScaterData/"+ str(a)+".csv")
 
+def readScatterFile(no):
+    import csv
+    import pandas as pd
+    try:
+        file_path = "ScaterData/{0}.csv".format(no)
+        f = open(file_path,"r")
+    except:
+        return None,None,None
+    lines = csv.reader(f)
+    delete_file = False
+    value_table = []
+    person_table = []
+    percent_table = []
+    i = 0
+    #load file
+    for line in lines:
+        datas = str(line).split("\.")
+        j = -1
+        try:
+            for a in datas:
+                tmp_person = []
+                tmp_percent = []
+                for b in a.split(","):
+                    if j >=1:
+                        try:
+                            tmp_person.append(int(b.split(" ")[1].replace("'","")))
+                            tmp_percent.append(float(b.split(" ")[2].replace("'","").replace("]","")))
+                        except:
+                            continue
+                    elif j== 0:
+                        val = b.replace("'","").replace(" ","")
+                        try:
+                            float(val)
+                            value_table.append(float(val))
+                        except:
+                            value_table.append("")
+                    j += 1
+                person_table.append(tmp_person)
+                percent_table.append(tmp_percent)
+        except:
+            continue
+        i += 1
+    #fill the None data
+    no_sction = False
+    try:
+        for i in range(len(value_table)):
+            if value_table[i] != "" : continue
+            if i == 0:
+                j = i
+                while (value_table[j] == ""):
+                    j += 1
+                value_table[i] = value_table[j]
+                continue
+            pre_val = value_table[i-1]
+            j=i
+            while(value_table[j]=="" and no_sction == False):
+                j+=1
+                if j>=len(value_table):
+                    no_sction = True
+                    break
+            if no_sction == False:
+                off=(float(value_table[j])-float(pre_val))/float(j-i+1)
+                j=i
+                while(value_table[j]==""):
+                    tmp = str(float(value_table[j-1]) + off)
+                    dot = tmp.find('.')
+                    value_table[j] = tmp[:dot+4]
+                    j+=1
+            else:
+                value_table[i] = pre_val
+    except:
+        delete_file = True
+        value_table = None
+    for i in range(1,len(person_table)):
+        tmp_p0=person_table[i-1]
+        tmp_p1 = None
+        tmp_pc0 = percent_table[i-1]
+        tmp_pc1 = None
+        j = i
+        if len(tmp_p0) == 0 or len(tmp_pc0) == 0:
+            delete_file = True
+            continue
+        while j < len(person_table):
+            if len(person_table[j])>0:
+                tmp_p1 = person_table[j]
+                tmp_pc1 = percent_table[j]
+                break
+            j += 1
+        if tmp_pc1 != None:
+            if len(tmp_p0) != len(tmp_p1):
+                limit_no = len(tmp_p0)
+                if len(tmp_p1) < limit_no:
+                    limit_no = len(tmp_p1)
+                if len(tmp_p0) != limit_no:
+                    tmp_list=tmp_p0
+                    tmp_p0 =[]
+                    for i in range(limit_no):tmp_p0.append(tmp_list[i])
+                if len(tmp_p1) != limit_no:
+                    tmp_list=tmp_p1
+                    tmp_p1 =[]
+                    for i in range(limit_no): tmp_p1.append(tmp_list[i])
+            div = j - i +1
+            off_p = (numpy.subtract(tmp_p1,tmp_p0) / div).astype(int)
+            off_pc = numpy.subtract(tmp_pc1,tmp_pc0) / div
+            k=i
+            while k < j:
+                person_table[k] = numpy.add( person_table[k - 1] , off_p).tolist()
+                percent_table[k] = numpy.add(percent_table[k - 1] ,off_pc).tolist()
+                k += 1
+
+    if delete_file:
+        f.close()
+        os.remove(file_path)
+        return None,None,None
+
+    return value_table, person_table, percent_table
+
+def relationAnalyze(rp,rpc,rv):
+    stocks = GetStockNO(None)
+    sel = []
+    for a in stocks:
+        pi = []
+        ana_i = []
+        v,p,pc = readScatterFile(a)
+        if v==None or p==None or pc==None: continue
+        ##get reference index
+        if rv != None and v[0]>rv: continue
+        if rp != None:
+            for i in range(len(p[0])):
+                if p[0][i] < rp:
+                    pi.append(i)
+        if rpc !=None:
+            if len(pi)>0:
+                t_pc = 0.00
+                for ai in pi:
+                    t_pc += pc[0][ai]
+                if t_pc < rpc: continue
+                ana_i = pi
+            else:
+                t_pc = 0
+                for i in range(len(pc[0])-1, 0, -1):
+                    ana_i.append(i)
+                    t_pc += pc[0][i]
+                    if t_pc > rpc: break
+
+        ##get all person/percentage using reference index
+        if len(ana_i)>0:
+            p_hist = []
+            pc_hist = []
+            for it in p:
+                sum = 0
+                try:
+                    for i in ana_i:
+                        sum += it[i]
+                except:
+                    continue
+                p_hist.append(sum)
+            for it in pc:
+                sum = 0.00
+                try:
+                    for i in ana_i:
+                        sum += it[i]
+                except:
+                    continue
+                pc_hist.append(sum)
+        if len(v)<10: continue
+        #if positive/negative relation over 80%
+        del_val = []
+        del_p_ref = []
+        del_pc_ref = []
+        for i in range(len(v) - 1): del_val.append(float(v[i])-float(v[i-1]))
+        for i in range(len(p_hist) - 1): del_p_ref.append(p_hist[i] - p_hist[i - 1])
+        for i in range(len(pc_hist) - 1): del_pc_ref.append(pc_hist[i] - pc_hist[i - 1])
+
+        weight = 0
+        percent_change = 0
+        #data lose
+        if len(del_val) != len(del_pc_ref): continue
+        for pi in del_pc_ref:
+            if pi != 0: percent_change += 1
+        for i in range(len(del_val)):
+            if(del_val[i]*del_pc_ref[i])>0: weight +=1;
+            if(del_val[i]*del_pc_ref[i])<0: weight -=1;
+
+        ratio = float(weight)/float(percent_change)
+        if ratio>=0.5:
+            sel.append(a)
+        elif ratio <= -0.5:
+            sel.append("n" + a)
+    return sel
 if __name__ == '__main__':
     ScatterDataBase()
+    rsl=relationAnalyze(500,60,None)
+    print(rsl)
