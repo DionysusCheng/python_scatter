@@ -392,8 +392,8 @@ def relationAnalyze(rp,rpc,rv):
             import matplotlib.pyplot as plt
             # plot
             ax1 = plt.subplot()
-            array0 = np.array(v, dtype=float)
-            array1 = np.array(pc_hist, dtype=float)
+            array0 = np.flip( np.array(v, dtype=float))
+            array1 = np.flipe( np.array(pc_hist, dtype=float))
             l1, = ax1.plot(array0, color='red')
 
             ax2 = ax1.twinx()
