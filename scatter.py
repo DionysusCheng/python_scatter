@@ -54,7 +54,7 @@ def ScatterWebGetDate():
             break
         except:
             continue
-        time.sleep(0.5)
+        time.sleep(0.2)
         times-=1
     tables = driver.find_elements_by_class_name("mt")
 
@@ -187,7 +187,10 @@ def ScatterDataBase():
                         break
         else:
             update_date = date
+            continue
         if len(update_date) > 0:
+            print(a + "update,")
+            print(update_date)
             ScatterTable(a, update_date)
             # if os.path.exists(str(a)+".csv"):
             #     shutil.move(str(a)+".csv", "ScaterData/"+ str(a)+".csv")
@@ -321,7 +324,7 @@ def relationAnalyze(rp,rpc,rv):
         if rv != None and v[0]>rv: continue
         if rp != None:
             for i in range(len(p[0])):
-                if p[0][i] < rp:
+                if p[0][i] < rp and i<len(pc[0]):
                     pi.append(i)
         if rpc !=None:
             if len(pi)>0:
@@ -377,12 +380,37 @@ def relationAnalyze(rp,rpc,rv):
             if(del_val[i]*del_pc_ref[i])<0: weight -=1;
 
         ratio = float(weight)/float(percent_change)
+        plot = False
         if ratio>=0.5:
+            plot = True
             sel.append(a)
         elif ratio <= -0.5:
+            plot = True
             sel.append("n" + a)
+        if plot:
+            import numpy as np
+            import matplotlib.pyplot as plt
+            # plot
+            ax1 = plt.subplot()
+            array0 = np.array(v, dtype=float)
+            array1 = np.array(pc_hist, dtype=float)
+            l1, = ax1.plot(array0, color='red')
+
+            ax2 = ax1.twinx()
+            l2, = ax2.plot(array1, color='orange')
+
+            plt.legend([l1, l2], ["value", "del_pc"])
+            plt.suptitle(str(a))
+            plt.savefig(a+".jpg")
+            plt.close()
+            #plt.show()
     return sel
 if __name__ == '__main__':
+    files_in_directory = os.listdir("./")
+    filtered_files = [file for file in files_in_directory if file.endswith(".jpg")]
+    for del_i in filtered_files:
+        os.remove(del_i)
+
     ScatterDataBase()
     rsl=relationAnalyze(500,60,None)
     print(rsl)
