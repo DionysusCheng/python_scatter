@@ -391,18 +391,22 @@ def relationAnalyze(rp,rpc,rv):
             import numpy as np
             import matplotlib.pyplot as plt
             # plot
-            ax1 = plt.subplot()
-            array0 = np.flip( np.array(v, dtype=float))
-            array1 = np.flipe( np.array(pc_hist, dtype=float))
-            l1, = ax1.plot(array0, color='red')
+            try:
+                ax1 = plt.subplot()
+                array0 = np.flip( np.array(v, dtype=float))
+                array1 = np.flip( np.array(pc_hist, dtype=float))
+                l1, = ax1.plot(array0, color='red')
 
-            ax2 = ax1.twinx()
-            l2, = ax2.plot(array1, color='orange')
+                ax2 = ax1.twinx()
+                l2, = ax2.plot(array1, color='orange')
 
-            plt.legend([l1, l2], ["value", "del_pc"])
-            plt.suptitle(str(a))
-            plt.savefig(a+".jpg")
-            plt.close()
+                plt.legend([l1, l2], ["value", "del_pc"])
+                plt.suptitle(str(a))
+                plt.savefig(a+".jpg")
+                plt.close()
+            except:
+                print("Err" +a)
+                continue
             #plt.show()
     return sel
 if __name__ == '__main__':
